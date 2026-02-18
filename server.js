@@ -39,17 +39,22 @@ app.all("/api/:academy/*", async (req,res)=>{
     console.log("➡️",target);
 
     const response = await axios({
-      url: target,
-      method: req.method,
-      headers:{
-        "Client-Service":"Appx",
-        "Auth-Key":"appxapi",
-        "Authorization": req.headers.authorization || "",
-        "User-ID": req.headers["user-id"] || "-2",
-        "source":"website"
-      },
-      data:req.body
-    });
+  url: target,
+  method: req.method,
+  headers:{
+    "Client-Service":"Appx",
+    "Auth-Key":"appxapi",
+    "Authorization": req.headers.authorization || "",
+    "User-ID": req.headers["user-id"] || "-2",
+    "source":"website",
+    "Content-Type":"application/x-www-form-urlencoded",
+    "Accept":"application/json",
+    "User-Agent":"okhttp/4.9.1"
+  },
+  data:req.body,
+  validateStatus:()=>true
+});
+
 
     res.json(response.data);
 
@@ -67,3 +72,4 @@ app.all("/api/:academy/*", async (req,res)=>{
 app.listen(10000,()=>{
   console.log("🔥 Universal Proxy running");
 });
+
