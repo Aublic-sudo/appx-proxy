@@ -8,40 +8,33 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🔥 load all academy apis
-const ACADEMIES = JSON.parse(
+// 🔥 load academy map
+const academies = JSON.parse(
   fs.readFileSync("./appxapis.json","utf8")
 );
 
-// 🔥 helper — find api by name
-function getAcademyApi(name){
-  const a = ACADEMIES.find(
-    x => x.name.toLowerCase() === (name||"").toLowerCase()
+// helper
+function findApi(name){
+  const a = academies.find(x =>
+    x.name.toLowerCase() === name.toLowerCase()
   );
-  return a ? a.api : null;
+  return a?.api || null;
 }
 
-// 🔥 UNIVERSAL PROXY
 app.all("/api/:academy/*", async (req,res)=>{
 
   try{
 
     const academy = req.params.academy;
-    const baseApi = getAcademyApi(academy);
+    const apiDomain = findApi(academy);
 
-    if(!baseApi){
-      return res.status(404).json({
-        error:"Academy not found"
-      });
+    if(!apiDomain){
+      return res.status(404).json({error:"academy not found"});
     }
 
     const path = req.params[0];
 
-    const query = req.url.includes("?")
-      ? req.url.slice(req.url.indexOf("?"))
-      : "";
-
-    const target = baseApi + "/" + path + query;
+    const target = `${apiDomain}/${path}`;
 
     console.log("➡️",target);
 
@@ -51,7 +44,7 @@ app.all("/api/:academy/*", async (req,res)=>{
       headers:{
         "Client-Service":"Appx",
         "Auth-Key":"appxapi",
-        "Authorization": req.headers["authorization"] || "",
+        "Authorization": req.headers.authorization || "",
         "User-ID": req.headers["user-id"] || "-2",
         "source":"website"
       },
@@ -62,9 +55,9 @@ app.all("/api/:academy/*", async (req,res)=>{
 
   }catch(err){
 
-    console.log("❌",err.response?.data || err.message);
+    console.log(err.response?.data || err.message);
 
-    res.status(400).json({
+    res.status(500).json({
       error:"proxy failed",
       details: err.response?.data || err.message
     });
@@ -72,5 +65,5 @@ app.all("/api/:academy/*", async (req,res)=>{
 });
 
 app.listen(10000,()=>{
-  console.log("✅ Universal Proxy Running");
+  console.log("🔥 Universal Proxy running");
 });
