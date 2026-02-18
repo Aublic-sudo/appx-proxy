@@ -7,15 +7,24 @@ const app = express();
 app.use(cors());
 app.use(express.json());
 
-// 🔥 Universal Proxy Route
+// 🔥 UNIVERSAL APPX PROXY
 app.all("/api/*", async (req,res)=>{
 
   try{
 
-    // target url build
+    // ⭐ QUERY STRING FIX
+    const query = req.url.includes("?")
+      ? req.url.slice(req.url.indexOf("?"))
+      : "";
+
+    const path = req.params[0];
+
     const target =
       "https://rozgarapinew.teachx.in/" +
-      req.params[0];
+      path +
+      query;
+
+    console.log("➡️ PROXY:",target);
 
     const response = await axios({
       url: target,
@@ -23,7 +32,7 @@ app.all("/api/*", async (req,res)=>{
       headers:{
         "Client-Service":"Appx",
         "Auth-Key":"appxapi",
-        "Authorization": req.headers.authorization || "",
+        "Authorization": req.headers["authorization"] || "",
         "User-ID": req.headers["user-id"] || "-2",
         "source":"website"
       },
@@ -33,13 +42,16 @@ app.all("/api/*", async (req,res)=>{
     res.json(response.data);
 
   }catch(err){
-    res.status(500).json({
+
+    console.log("❌ PROXY ERROR:",err.response?.data || err.message);
+
+    res.status(400).json({
       error:"proxy failed",
-      details: err.message
+      details: err.response?.data || err.message
     });
   }
 });
 
 app.listen(10000,()=>{
-  console.log("Proxy running...");
+  console.log("✅ Proxy running on 10000");
 });
