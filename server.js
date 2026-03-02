@@ -1,75 +1,65 @@
-const express = require("express");
-const axios = require("axios");
-const cors = require("cors");
-const fs = require("fs");
+import express from "express";
+import fetch from "node-fetch";
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+/* 🔐 Allowed Domains */
+const ALLOWED_HOSTS = [
+  "akamai.net.in",
+  "classx.co.in",
+  "cloud-front.in",
+  "liveclasses.cloud-front.in"
+];
 
-// 🔥 load academy map
-const academies = JSON.parse(
-  fs.readFileSync("./appxapis.json","utf8")
-);
+/* 🔥 PROXY ROUTE */
+app.get("/proxy", async (req, res) => {
 
-// helper
-function findApi(name){
-  const a = academies.find(x =>
-    x.name.toLowerCase() === name.toLowerCase()
-  );
-  return a?.api || null;
-}
+  const target = req.query.url;
+  if (!target) return res.status(400).send("Missing URL");
 
-app.all("/api/:academy/*", async (req,res)=>{
+  try {
 
-  try{
+    const urlObj = new URL(target);
 
-    const academy = req.params.academy;
-    const apiDomain = findApi(academy);
+    /* 🔐 Security: Allow only specific domains */
+    const allowed = ALLOWED_HOSTS.some(domain =>
+      urlObj.hostname.endsWith(domain)
+    );
 
-    if(!apiDomain){
-      return res.status(404).json({error:"academy not found"});
+    if (!allowed) {
+      return res.status(403).send("Domain not allowed");
     }
 
-    const path = req.params[0];
-
-    const target = `${apiDomain}/${path}`;
-
-    console.log("➡️",target);
-
-    const response = await axios({
-  url: target,
-  method: req.method,
-  headers:{
-    "Client-Service":"Appx",
-    "Auth-Key":"appxapi",
-    "Authorization": req.headers.authorization || "",
-    "User-ID": req.headers["user-id"] || "-2",
-    "source":"website",
-    "Content-Type":"application/x-www-form-urlencoded",
-    "Accept":"application/json",
-    "User-Agent":"okhttp/4.9.1"
-  },
-  data:req.body,
-  validateStatus:()=>true
-});
-
-
-    res.json(response.data);
-
-  }catch(err){
-
-    console.log(err.response?.data || err.message);
-
-    res.status(500).json({
-      error:"proxy failed",
-      details: err.response?.data || err.message
+    /* 🔥 Fetch from target with custom headers */
+    const response = await fetch(target, {
+      headers: {
+        Referer: "https://test.akamai.net.in/",
+        Origin: "https://test.akamai.net.in",
+        "User-Agent": "Mozilla/5.0"
+      }
     });
+
+    /* 🔥 Copy important headers */
+    res.set("Access-Control-Allow-Origin", "*");
+    res.set("Content-Type", response.headers.get("content-type") || "application/octet-stream");
+
+    /* 🔥 Stream directly */
+    response.body.pipe(res);
+
+  } catch (err) {
+    console.error("Proxy error:", err.message);
+    res.status(500).send("Proxy Error");
   }
 });
 
-app.listen(10000,()=>{
-  console.log("🔥 Universal Proxy running");
+/* 🔥 Root check */
+app.get("/", (req, res) => {
+  res.send("Proxy running 🚀");
 });
 
+/* 🔥 Dynamic Port (Render compatible) */
+const PORT = process.env.PORT || 3000;
+
+app.listen(PORT, () => {
+  console.log("Server running on port", PORT);
+});
